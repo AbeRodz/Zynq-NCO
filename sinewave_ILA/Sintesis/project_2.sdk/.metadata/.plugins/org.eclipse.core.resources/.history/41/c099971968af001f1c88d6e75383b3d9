@@ -1,0 +1,23 @@
+/*
+ * nco.c
+ *
+ *  Created on: Nov 30, 2024
+ *      Author: Usuario
+ */
+
+#include "xparameters.h"
+#include "xil_io.h"
+#include "nco_ip.h"
+
+
+int main(void){
+
+	xil_printf("-- Inicio de NCO IP Core --\r\n");
+
+	XPAR_NCO_IP_0_S00_AXI_BASEADDR
+
+
+
+	NCO_IP_S00_AXI_SLV_REG
+	NCO_IP_mWriteReg()
+}

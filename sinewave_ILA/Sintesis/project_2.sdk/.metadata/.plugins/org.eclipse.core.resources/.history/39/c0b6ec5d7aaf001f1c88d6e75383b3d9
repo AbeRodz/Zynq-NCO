@@ -1,0 +1,53 @@
+/*
+ * nco.c
+ *
+ *  Created on: Nov 30, 2024
+ *      Author: Abraham R.
+ */
+
+#include "xparameters.h"
+#include "xil_io.h"
+#include "nco_ip.h"
+
+#define NCO_BASE_ADDR XPAR_NCO_IP_0_S00_AXI_BASEADDR
+#define REG_FREQUENCY_OFFSET 0x00
+#define REG_WAVE_TYPE_OFFSET 0x04
+#define REG_WAVE_OUTPUT_OFFSET 0x08
+int main(void) {
+    xil_printf("-- Inicio de NCO IP Core --\r\n");
+
+    // Set frequency tuning word (example value for 1 MHz tuning word)
+    u32 frequency_tuning_word = 0x00010000;
+    Xil_Out32(NCO_BASE_ADDR + REG_FREQUENCY_OFFSET, frequency_tuning_word);
+    xil_printf("Frequency tuning word set to: 0x%08X\r\n", frequency_tuning_word);
+
+    // Confirm frequency setting
+    u32 read_back_value = Xil_In32(NCO_BASE_ADDR + REG_FREQUENCY_OFFSET);
+    xil_printf("Read back frequency tuning word: 0x%08X\r\n", read_back_value);
+
+    // Set wave type (e.g., sine wave = 0x01)
+    u32 wave_type = 0x01;
+    Xil_Out32(NCO_BASE_ADDR + REG_WAVE_TYPE_OFFSET, wave_type);
+    xil_printf("Wave type set to: %u\r\n", wave_type);
+
+    xil_printf("Streaming wave output...\r\n");
+
+
+    for (int i = 0; i < 100; i++) {
+        // Read wave_output register
+        u32 wave_output = Xil_In32(NCO_BASE_ADDR + REG_WAVE_OUTPUT_OFFSET);
+
+        u16 high_bits = (wave_output >> 16) & 0xFFFF;
+        u16 low_bits = wave_output & 0xFFFF;
+
+        // Print both parts for verification
+        xil_printf("High: 0x%04X, Low: 0x%04X\r\n", high_bits, low_bits);
+
+
+        // Delay to avoid overwhelming the FPGA
+        for (volatile int j = 0; j < 100000 ; j++);
+    }
+
+
+    xil_printf("-- Fin de NCO IP Core --\r\n");
+}

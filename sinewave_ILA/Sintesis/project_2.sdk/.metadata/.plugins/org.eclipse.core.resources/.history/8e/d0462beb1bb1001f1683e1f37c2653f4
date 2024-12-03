@@ -1,0 +1,121 @@
+/*
+ * nco.c
+ *
+ *  Created on: Nov 30, 2024
+ *      Author: Abraham R.
+ */
+
+#include "xparameters.h"
+#include "xil_io.h"
+#include "nco_ip.h"
+
+
+/*
+ * REG 0 ->  frequency word
+ * REG 1 -> wave type
+ * REG 2 -> wave output
+ * REG 3 -> enable
+ *
+ */
+
+#define NCO_BASE_ADDR XPAR_NCO_IP_0_S00_AXI_BASEADDR
+#define REG_FREQUENCY_OFFSET 0x00
+#define REG_WAVE_TYPE_OFFSET 0x04
+#define REG_WAVE_OUTPUT_OFFSET 0x08
+#define REG_ENABLE_OFFSET 0x0C
+
+
+// Struct to hold NCO configuration and state
+typedef struct {
+    int32_t base_addr;        // Base address of the NCO
+    int32_t frequency;        // Current frequency tuning word
+    int32_t wave_type;        // Current wave type
+    int32_t enable;           // Enable status (0 or 1)
+    int32_t freq_step;        // Step size for frequency adjustment
+    int32_t min_freq;         // Minimum frequency tuning word
+    int32_t max_freq;         // Maximum frequency tuning word
+} NCO_Config;
+
+// Function to initialize NCO settings
+void NCO_Init(NCO_Config *nco, int32_t base_addr, int32_t init_freq, int32_t freq_step, int32_t min_freq, int32_t max_freq) {
+    nco->base_addr = base_addr;
+    nco->frequency = init_freq;
+    nco->wave_type = 0x01; // Default to sine wave
+    nco->enable = 0x01;   // Enable by default
+    nco->freq_step = freq_step;
+    nco->min_freq = min_freq;
+    nco->max_freq = max_freq;
+}
+
+// Function to write frequency tuning word
+void NCO_SetFrequency(NCO_Config *nco, int32_t frequency_tuning_word) {
+    nco->frequency = frequency_tuning_word;
+    NCO_IP_mWriteReg(nco->base_addr, REG_FREQUENCY_OFFSET, nco->frequency);
+    xil_printf("Frequency tuning word set to: 0x%08X\r\n", nco->frequency);
+}
+
+// Function to set wave type
+void NCO_SetWaveType(NCO_Config *nco, int32_t wave_type) {
+    nco->wave_type = wave_type;
+    NCO_IP_mWriteReg(nco->base_addr, REG_WAVE_TYPE_OFFSET, nco->wave_type);
+    xil_printf("Wave type set to: %u\r\n", nco->wave_type);
+}
+
+// Function to enable/disable NCO
+void NCO_SetEnable(NCO_Config *nco, int32_t enable) {
+    nco->enable = enable;
+    NCO_IP_mWriteReg(nco->base_addr, REG_ENABLE_OFFSET, nco->enable);
+    xil_printf("Enable signal set to: %u\r\n", nco->enable);
+}
+
+// Function to dynamically adjust frequency
+void NCO_AdjustFrequency(NCO_Config *nco) {
+    if (nco->frequency + nco->freq_step > nco->max_freq || nco->frequency + nco->freq_step < nco->min_freq) {
+        nco->freq_step = -nco->freq_step; // Reverse direction when reaching boundaries
+    }
+    nco->frequency += nco->freq_step; // Adjust frequency
+    NCO_SetFrequency(nco, nco->frequency); // Apply new frequency
+}
+
+
+int main(void) {
+    xil_printf("-- Inicio de NCO IP Core --\r\n");
+    int32_t read_back_value = 0;
+    // Set frequency tuning word (example value for 1 MHz tuning word)
+    int32_t frequency_tuning_word = 0x00000B22;
+    NCO_IP_mWriteReg(NCO_BASE_ADDR, REG_FREQUENCY_OFFSET, frequency_tuning_word);
+    xil_printf("Frequency tuning word set to: 0x%08X\r\n", frequency_tuning_word);
+
+    // Confirm frequency setting
+    read_back_value = NCO_IP_mReadReg(NCO_BASE_ADDR, REG_FREQUENCY_OFFSET);
+    xil_printf("Read back frequency tuning word: 0x%08X\r\n", read_back_value);
+
+    // Set wave type (e.g., sine wave = 0x01)
+    int32_t wave_type = 0x00;
+    NCO_IP_mWriteReg(NCO_BASE_ADDR, REG_WAVE_TYPE_OFFSET, wave_type);
+    xil_printf("Wave type set to: %u\r\n", wave_type);
+    read_back_value = NCO_IP_mReadReg(NCO_BASE_ADDR, REG_WAVE_TYPE_OFFSET);
+    xil_printf("Read back Wave type: 0x%08X\r\n", read_back_value);
+
+    // Set enable
+    int32_t enable = 0x01;
+    NCO_IP_mWriteReg(NCO_BASE_ADDR, REG_ENABLE_OFFSET, enable);
+    xil_printf("Enable signal set to: %u\r\n", enable);
+
+    xil_printf("Streaming wave output...\r\n");
+
+    for (int i = 0; i < 1024; i++) {
+        // Read wave_output register
+        int32_t wave_output = NCO_IP_mReadReg(NCO_BASE_ADDR, REG_WAVE_OUTPUT_OFFSET);
+        int16_t low_bits = wave_output & 0xFFFF;
+
+        // Print the wave output (lower 16 bits for the DAC or display)
+        xil_printf("Wave output: %d\r\n", low_bits);
+
+        // Delay to avoid overwhelming the FPGA
+        //for (volatile int j = 0; j < 100000; j++);
+    }
+
+    xil_printf("-- Fin de NCO IP Core --\r\n");
+    return 0;
+}
